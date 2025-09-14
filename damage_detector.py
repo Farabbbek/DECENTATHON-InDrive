@@ -1,18 +1,22 @@
 from ultralytics import YOLO
+import torch 
 
 class DamageDetector:
 
     def __init__(self, model_path):
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"--- Инициализация модели. Выбрано устройство: {device} ---")
 
         try:
             self.model = YOLO(model_path)
-            self.model.to('cuda')
+            self.model.to(device) # <-- Используем определенное выше устройство
+            
             print("Модель успешно загружена:")
             print(f"  - Путь: {model_path}")
             print(f"  - Устройство: {self.model.device}")
             print(f"  - Классы: {self.model.names}")
         except Exception as e:
-            print(f"ОШИБКА: Не удалось загрузить модель из {model_path}. Убедитесь, что файл существует. Ошибка: {e}")
+            print(f"ОШИБКА: Не удалось загрузить модель из {model_path}. Ошибка: {e}")
             raise
 
     def predict(self, image_path):

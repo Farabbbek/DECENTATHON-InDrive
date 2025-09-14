@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>inDrive | Анализ состояния авто</title>
+    <style>
+        /* --- ИЗМЕНЕНИЯ ТОЛЬКО ЗДЕСЬ --- */
+
+        /* Фирменные цвета inDrive */
+        :root {
+            --indrive-green: #b1f200;
+            --indrive-black: #1d1d1f;
+            --indrive-bg: #fdfcec;
+            --card-bg: #ffffff;
+            --text-secondary: #6e6e73;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 40px auto; /* Добавлен отступ сверху для центрирования */
+            padding: 20px; 
+            background-color: var(--indrive-bg); /* Новый фон */
+        }
+
+        .container { 
+            background-color: var(--card-bg); /* Новый фон карточки */
+            padding: 40px; 
+            border-radius: 24px; /* Более скругленные углы */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Мягкая тень */
+            text-align: center; /* <<< ГЛАВНОЕ ИЗМЕНЕНИЕ: ЦЕНТРИРУЕМ ВСЕ НАДПИСИ */
+        }
+
+        h1 { 
+            color: var(--indrive-black); /* Новый цвет заголовка */
+            text-align: center; 
+        }
+
+        input[type="file"] { display: none; }
+
+        .upload-btn { 
+            background-color: var(--indrive-black); /* Новый цвет кнопки */
+            color: white; 
+            padding: 14px 28px; 
+            border-radius: 100px; /* Закругленная кнопка */
+            cursor: pointer; 
+            display: inline-block; 
+            border: none;
+            font-size: 16px;
+        }
+
+        .analyze-btn { 
+            background-color: var(--indrive-green); /* Новый цвет кнопки */
+            color: var(--indrive-black); /* Новый цвет текста */
+            padding: 14px 28px; 
+            border-radius: 100px; /* Закругленная кнопка */
+            cursor: pointer; 
+            border: none; 
+            font-size: 16px; 
+        }
+
+        #fileName { 
+            margin-top: 15px; /* Добавлен отступ сверху */
+            display: block; /* Чтобы отступ сработал */
+            color: var(--text-secondary); 
+        }
+
+        #loader { display: none; text-align: center; margin-top: 20px; }
+        
+        #uploadedImage { 
+            max-width: 100%; 
+            margin-top: 20px; 
+            border-radius: 16px; /* Более скругленные углы */
+            display: none; 
+        }
+        
+        #results-container { 
+            margin-top: 20px; 
+            padding: 20px; 
+            border-top: 1px solid #eee; /* Разделитель вместо рамки */
+            display: none; 
+            text-align: left; /* Результаты выравниваем по левому краю для читаемости */
+        }
+
+        .result-item { 
+            margin-bottom: 15px; 
+            font-size: 18px; 
+        }
+        
+        .result-item strong { color: #1c1e21; }
+        
+        #quality-score { 
+            font-size: 3.5em; /* Увеличим оценку */
+            font-weight: bold; 
+            text-align: center; 
+        }
+        
+        .score-good { color: #28a745; }
+        .score-medium { color: #ffc107; }
+        .score-bad { color: #dc3545; }
+
+        /* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Анализ состояния автомобиля</h1>
+        <div> <!-- Обертка для кнопок, чтобы они были на одной линии -->
+            <label for="imageUpload" class="upload-btn">Выберите фото</label>
+            <button onclick="uploadAndPredict()" class="analyze-btn">Анализировать</button>
+        </div>
+        <input type="file" id="imageUpload" accept="image/*" onchange="displayFileName()">
+        <span id="fileName">Файл не выбран</span>
+        
+        <div id="loader"><p>Анализирую...</p></div>
+        <img id="uploadedImage" src=""/>
+        
+        <div id="results-container">
+            <div class="result-item" id="quality-score"></div>
+            <div class="result-item"><strong>Общее состояние:</strong> <span id="integrity-status"></span></div>
+            <div class="result-item"><strong>Состояние чистоты:</strong> <span id="cleanliness-status"></span></div>
+            <div class="result-item"><strong>Заключение:</strong> <span id="summary-text"></span></div>
+        </div>
+
+    </div>
+
+    <script>
+        function displayFileName() {
+            const fileInput = document.getElementById('imageUpload');
+            const fileNameSpan = document.getElementById('fileName');
+            const imageElement = document.getElementById('uploadedImage');
+            if (fileInput.files.length > 0) {
+                fileNameSpan.textContent = fileInput.files[0].name;
+                imageElement.src = URL.createObjectURL(fileInput.files[0]);
+                imageElement.style.display = 'block';
+            }
+        }
+
+        async function uploadAndPredict() {
+            const fileInput = document.getElementById('imageUpload');
+            const loader = document.getElementById('loader');
+            const resultsContainer = document.getElementById('results-container');
+
+            if (fileInput.files.length === 0) { alert('Пожалуйста, выберите файл!'); return; }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            resultsContainer.style.display = 'none';
+            loader.style.display = 'block';
+
+            try {
+                const response = await fetch('/predict', { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const qualityScoreEl = document.getElementById('quality-score');
+                    qualityScoreEl.textContent = data.quality_score + "%";
+                    
+                    qualityScoreEl.className = 'result-item';
+                    if(data.quality_score >= 80) qualityScoreEl.classList.add('score-good');
+                    else if(data.quality_score >= 50) qualityScoreEl.classList.add('score-medium');
+                    else qualityScoreEl.classList.add('score-bad');
+
+                    document.getElementById('integrity-status').textContent = data.integrity_status;
+                    document.getElementById('cleanliness-status').textContent = data.cleanliness_status;
+                    document.getElementById('summary-text').textContent = data.summary_text;
+
+                    resultsContainer.style.display = 'block';
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+
+            } catch (error) {
+                alert('Произошла сетевая ошибка: ' + error);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+data/
+runs/
+__pycache__/
+*.pyc
+static/uploads/
+*.pt
+.venv/
+venv/
+env/
